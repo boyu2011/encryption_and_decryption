@@ -1,0 +1,46 @@
+CS631 -- Advanced Programming in the UNIX Environment - Fall 2012 - HW#5
+
+HW#5: write a simple tool to perform encryption/decryption of content
+
+Summary
+
+In this assignment you will write a small, standalone tool following 
+standard Unix conventions that performs encryption or decryption of 
+its input. Even though other tools exist to accomplish this task, it
+is useful to learn how to perform the basic steps to call the common
+SSL library functions involved in this task.
+
+Problem assignment
+
+Write a simple program to encrypt or decrypt its input using the SSL
+blowfish(3) cipher. Your program is defined in this manual page. 
+As before, your program will:
+
+follow the general homework guidelines
+be written in C (not C++ or anything else)
+not generate any output other than error messages when appropriate
+Note: this assignment is worth 30 points.
+
+Deliverables and Due Date
+
+You will submit a single tar archive named username-hw5.tar that will
+extract into a directory named after your username. In that directory
+will be at least a file named bfed.c and an optional Makefile. If you
+have any commentary on your submission, include it in a file called
+README.
+
+For example, I would submit the file jschauma-hw5.tar which might 
+extract as follows:
+
+$ tar xvf jschauma-hw5.tar
+jschauma
+jschauma/Makefile
+jschauma/README
+jschauma/bfed.c
+$ cd jschauma
+$ cc -Wall bfed.c
+$
+The due date for this assignment is 2012-12-10 18:15. Please attach the
+file to an email sent from your @stevens.edu email address to
+jschauma@stevens.edu with a subject of "[CS631] HW5".
+
