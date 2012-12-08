@@ -10,14 +10,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAXLINE 1000
-
+/* Commandline argument flags. */
 int d_flag = 0;
 int e_flag = 0;
 int h_flag = 0;
 int k_flag = 0;
 
-char g_key [16+1];
+/* Key string */
+char g_key [16];
 
 void usage ()
 {
@@ -25,6 +25,7 @@ void usage ()
 	printf ( "Usage: bfed [ −deh] −k key\n" );
 }
 
+/* Parse commandline arguments. */
 void parse_cmd_opt ( int argc, char ** argv )
 {
 	int ch;
@@ -57,51 +58,92 @@ void parse_cmd_opt ( int argc, char ** argv )
 		}
 	}
 
-	/* only -e or -d can be specified */
+	/* only one, either -e or -d can be specified */
 	if ( ( d_flag && e_flag ) || ( !d_flag && !e_flag ) )
 	{
 		usage();
 		exit(0);
 	}
 
+	/* key (-k) option should be presented */
 	if ( !k_flag )
 	{
 		usage();
 		exit(0);
 	}
+}
 
-	if ( k_flag && (strlen(g_key)!=16) )
+/*
+	The Symmetirc Key verification.
+
+	The key should be 128bit ( 16 byte ), and it must be exactly
+	16 hexadecimal characters.
+*/
+
+int verify_key_string ( char * key_string )
+{
+	int i = 0;
+
+	if ( strlen(g_key)!=16 )
 	{
-		printf ( "\nKey length should be 16 bytes\n" );
-		exit(0);
+		printf ( "Key length should be 16 byte.\n" );
+		return -1;
+	}
+
+	for ( i = 0; i < strlen(g_key); i++ )
+	{
+		char c = key_string[i];
+		if ( !( (c >= '0' && c <= '9') ||
+			    (c >= 'a' && c <= 'f') ||
+			    (c >= 'A' && c <= 'F') ) )
+		{
+			printf ( "Key must be exactly 16 hexadecimal characters.\n" );
+			return -1;
+		}
+	}
+
+	return 1;		
+}
+
+/*
+	Since the key is given on the command-line, bfed presents leaking
+	the secret into the process table by manipulating argv.
+*/
+void erase_cmdline_args ( int argc, char ** argv )
+{
+	int i = 0;
+
+	for ( i = 1; i < argc; i++ )
+	{
+		memset ( argv[i], 'x', strlen(argv[i]) );
 	}
 }
 
 /*
-	Encrypt/Decrypt stream.
+	Encrypt/Decrypt Input/Output Stream.
 
-	if do_encrypt == 1, encrypt
-	if do_encrypt == 0, decrypt
+	if do_encrypt == 1, execute encryption.
+	if do_encrypt == 0, execute decryption.
 */
 
-int do_crypt(FILE *in, FILE *out, int do_encrypt, char * key)
+int do_crypt(FILE *in, FILE *out, int do_encrypt, unsigned char * key)
 {
 	/* Allow enough space in output buffer for additional block */
-	char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
+	unsigned char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
 	int inlen, outlen;
    	EVP_CIPHER_CTX ctx;
 	/* Bogus key and IV: we'd normally set these from
 	* another source.
 	*/
-	//unsigned char key[] = "0123456789";
-	unsigned char iv[] = "12345678";
+	unsigned char iv[] = "00000000";
 	/* Don't set key or IV because we will modify the parameters */
 	EVP_CIPHER_CTX_init(&ctx);
-	/* second para decides which algorithm do you use!!!!! */
+	/* 2nd parameter decides which algorithm do we use!! */
 	EVP_CipherInit_ex(&ctx, EVP_bf_cbc(), NULL, NULL, NULL, do_encrypt);
-	EVP_CIPHER_CTX_set_key_length(&ctx, 16);	/* second para !!!!!!!!! */
+	EVP_CIPHER_CTX_set_key_length(&ctx, 16);
 	/* We finished modifying parameters so now we can set key and IV */
-	EVP_CipherInit_ex(&ctx, NULL, NULL, key, NULL, do_encrypt);
+	/* 4th parameter is key, 5th parameter is IV */
+	EVP_CipherInit_ex(&ctx, NULL, NULL, key, iv, do_encrypt);
 
 	for(;;)
 	{
@@ -133,18 +175,30 @@ int do_crypt(FILE *in, FILE *out, int do_encrypt, char * key)
 
 int main( int argc, char ** argv )
 {
+	/* Initialize the world */
+	memset ( g_key, 0x0, sizeof(g_key) );
+
 	parse_cmd_opt ( argc, argv );
 
+	if ( verify_key_string ( g_key ) == -1 )
+	{
+		usage();
+		exit(0);
+	}
+
+	/* Prevent the key within the command-line arguemnt from leaking. */
+	erase_cmdline_args ( argc, argv );
+	
 	if ( e_flag )
 	{
 		/* Encryption */
-		do_crypt ( stdin, stdout, 1, g_key );	
+		do_crypt ( stdin, stdout, 1, (unsigned char *)g_key );	
 	}
 
 	if ( d_flag )
 	{
 		/* Decryption */
-		do_crypt ( stdin, stdout, 0, g_key );
+		do_crypt ( stdin, stdout, 0, (unsigned char *)g_key );
 	}
 
 	return 0;
